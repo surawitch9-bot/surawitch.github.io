@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สถานีวิทยุ TARO - สมุทรปราการ (Live Video & Audio Studio)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Kanit', 'sans-serif'] },
+                    colors: {
+                        taroOrange: '#ff6b35',
+                        taroOrangeHover: '#e85a26',
+                        taroBlue: '#004e89',
+                        taroBlueHover: '#003b69',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes pulseLive {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.45; transform: scale(0.96); }
+        }
+        .animate-live { animation: pulseLive 1.4s infinite ease-in-out; }
+        @keyframes equalizer {
+            0%, 100% { height: 6px; }
+            50% { height: 22px; }
+        }
+        .eq-bar { width: 4px; background-color: #16a34a; border-radius: 9999px; animation: equalizer 0.8s infinite ease-in-out; }
+        .eq-bar:nth-child(2) { animation-delay: 0.2s; }
+        .eq-bar:nth-child(3) { animation-delay: 0.4s; }
+        .eq-bar:nth-child(4) { animation-delay: 0.1s; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col justify-between p-4 sm:p-6">
+
+    <div id="toastContainer" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-11/12 max-w-md pointer-events-none transition-all duration-300 opacity-0 -translate-y-4">
+        <div id="toastBox" class="bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-xl flex items-center justify-between gap-3 border border-slate-700">
+            <span id="toastMessage" class="text-sm sm:text-base font-medium">แจ้งเตือนระบบ</span>
+        </div>
+    </div>
+
+    <div class="w-full max-w-lg mx-auto my-auto">
+        <header class="bg-gradient-to-br from-taroBlue via-[#005f9e] to-taroOrange text-white p-6 sm:p-8 rounded-3xl shadow-lg text-center mb-6 relative overflow-hidden">
+            <div class="relative z-10">
+                <div class="inline-block bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium tracking-wider mb-2">
+                    ONLINE BROADCAST SYSTEM
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-bold tracking-tight drop-shadow-sm">
+                    📻 สถานีวิทยุ TARO
+                </h1>
+                <p class="text-white/90 text-sm sm:text-base mt-1 font-light">
+                    สมุทรปราการ • Video & Audio Live Studio
+                </p>
+            </div>
+            <div class="w-32 h-32 bg-white/10 rounded-full absolute -top-10 -right-10"></div>
+            <div class="w-24 h-24 bg-black/10 rounded-full absolute -bottom-8 -left-8"></div>
+        </header>
+
+        <!-- Home View -->
+        <main id="homeView" class="bg-white p-6 sm:p-8 rounded-3xl shadow-md border border-slate-100 text-center transition-all">
+            <div class="w-16 h-16 bg-blue-50 text-taroBlue rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl shadow-inner">
+                🎥
+            </div>
+            <h2 class="text-xl sm:text-2xl font-bold text-slate-800">ยินดีต้อนรับสู่สถานี TARO</h2>
+            <p class="text-slate-500 text-sm sm:text-base mt-2 mb-6">
+                กดปุ่มสีน้ำเงินด้านล่างเพื่อเข้าสู่ห้องรับฟังและชมไลฟ์สด
+            </p>
+
+            <button onclick="enterListenerMode()" class="w-full py-4 px-6 bg-taroBlue hover:bg-taroBlueHover active:scale-[0.98] text-white font-semibold text-base sm:text-lg rounded-2xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer">
+                <span>📹 แตะเพื่อเข้าชมสถานีสด (ภาพและเสียง)</span>
+            </button>
+
+            <div class="relative my-6">
+                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200"></div></div>
+                <div class="relative flex justify-center text-xs uppercase"><span class="bg-white px-3 text-slate-400">สำหรับผู้ดูแลสถานี</span></div>
+            </div>
+
+            <button onclick="showView('loginView')" class="w-full py-3.5 px-6 bg-slate-700 hover:bg-slate-800 active:scale-[0.98] text-white font-medium text-sm sm:text-base rounded-2xl shadow transition-all flex items-center justify-center gap-2 cursor-pointer">
+                <span>🔐 เข้าสู่ระบบแอดมิน</span>
+            </button>
+        </main>
+
+        <!-- Admin Login View -->
+        <section id="loginView" class="bg-white p-6 sm:p-8 rounded-3xl shadow-md border border-slate-100 hidden">
+            <h2 class="text-xl sm:text-2xl font-bold text-slate-800 mb-1">🔐 เข้าสู่ระบบแอดมิน</h2>
+            <p class="text-slate-500 text-sm mb-6">กรุณากรอกข้อมูลเพื่อเข้าสู่แผงควบคุมการออกอากาศ</p>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">อีเมลแอดมิน</label>
+                    <input type="email" id="adminEmail" placeholder="surawitch9@gmail.com" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-taroBlue focus:border-transparent transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">รหัสผ่าน</label>
+                    <input type="password" id="adminPass" placeholder="••••••••" onkeypress="if(event.key === 'Enter') loginAdmin()" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-taroBlue focus:border-transparent transition">
+                </div>
+            </div>
+
+            <div class="mt-6 space-y-3">
+                <button onclick="loginAdmin()" class="w-full py-3.5 px-6 bg-taroBlue hover:bg-taroBlueHover active:scale-[0.98] text-white font-semibold rounded-2xl shadow transition-all cursor-pointer">
+                    เข้าสู่ระบบ
+                </button>
+                <button onclick="showView('homeView')" class="w-full py-3 px-6 bg-slate-200 hover:bg-slate-300 active:scale-[0.98] text-slate-700 font-medium rounded-2xl transition-all cursor-pointer">
+                    กลับหน้าแรก
+                </button>
+            </div>
+        </section>
+
+        <!-- Admin Control Panel View -->
+        <section id="adminView" class="bg-white p-6 sm:p-8 rounded-3xl shadow-md border border-slate-100 hidden">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg sm:text-xl font-bold text-slate-800">🛠️ แผงควบคุมแอดมิน</h2>
+                <span class="text-xs bg-orange-100 text-taroOrange font-semibold px-3 py-1 rounded-full">Admin Online</span>
+            </div>
+
+            <div class="bg-slate-50 border border-slate-200 p-4 rounded-2xl mb-5 text-center">
+                <span class="text-xs text-slate-500 block mb-1">สถานะการออกอากาศปัจจุบัน</span>
+                <span id="adminStatusText" class="text-base font-bold text-red-600">ยังไม่เริ่มออกอากาศ</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mb-4">
+                <button onclick="switchAdminTab('video')" id="tabVideoBtn" class="py-2.5 px-2 text-xs font-semibold rounded-xl bg-taroOrange text-white shadow transition cursor-pointer">📹 ไลฟ์สดกล้อง/ไมค์</button>
+                <button onclick="switchAdminTab('music')" id="tabMusicBtn" class="py-2.5 px-2 text-xs font-semibold rounded-xl bg-slate-200 text-slate-700 transition cursor-pointer">🎵 โหมดเพลง MP3</button>
+                <button onclick="switchAdminTab('text')" id="tabTextBtn" class="py-2.5 px-2 text-xs font-semibold rounded-xl bg-slate-200 text-slate-700 transition cursor-pointer">📺 โหมดหน้าจอ</button>
+                <button onclick="switchAdminTab('chat')" id="tabChatBtn" class="py-2.5 px-2 text-xs font-semibold rounded-xl bg-slate-200 text-slate-700 transition cursor-pointer">💬 แชทผู้ชม</button>
+            </div>
+
+            <div id="adminVideoSection" class="space-y-4">
+                <div class="bg-orange-50 border border-orange-200 p-4 rounded-2xl text-center">
+                    <p class="text-xs text-orange-800 mb-3 font-medium">กดปุ่มด้านล่างเพื่อเปิดกล้องและไมโครโฟนเริ่มไลฟ์สดให้ทุกคนดูทันที</p>
+                    <div class="relative rounded-xl overflow-hidden bg-black aspect-video mb-3 flex items-center justify-center">
+                        <video id="adminLocalVideo" autoplay playsinline muted class="w-full h-full object-cover"></video>
+                        <span id="videoPlaceholder" class="absolute text-white text-xs">ยังไม่ได้เปิดกล้อง</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="startWebcamLive()" class="flex-1 py-3 bg-taroOrange hover:bg-taroOrangeHover text-white font-bold rounded-xl text-sm shadow cursor-pointer">
+                            🔴 เริ่มไลฟ์สด (เปิดกล้อง/ไมค์)
+                        </button>
+                        <button onclick="stopWebcamLive()" class="py-3 px-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm shadow cursor-pointer">
+                            ⏹️ ปิดกล้อง
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="adminMusicSection" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">ชื่อรายการ / ชื่อเพลง</label>
+                    <input type="text" id="songTitleInput" placeholder="เช่น เพลงฮิตติดแคว, ข่าวต้นชั่วโมง" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-taroOrange transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">URL ไฟล์ MP3</label>
+                    <input type="url" id="songUrlInput" placeholder="https://example.com/song.mp3" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-taroOrange transition">
+                </div>
+                <div class="bg-blue-50/70 p-3.5 rounded-2xl border border-blue-100">
+                    <span class="text-xs font-semibold text-taroBlue block mb-2">⚡ เลือกเพลงทดสอบด่วน:</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="setTestSong('เพลงบรรเลงผ่อนคลาย 1', 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3')" class="py-2 px-3 bg-white hover:bg-blue-100 text-taroBlue border border-blue-200 rounded-xl text-xs font-medium transition cursor-pointer shadow-sm">🎵 เพลงทดสอบ 1</button>
+                        <button type="button" onclick="setTestSong('เพลงจังหวะสนุก 2', 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3')" class="py-2 px-3 bg-white hover:bg-blue-100 text-taroBlue border border-blue-200 rounded-xl text-xs font-medium transition cursor-pointer shadow-sm">🎶 เพลงทดสอบ 2</button>
+                    </div>
+                </div>
+                <button onclick="broadcastMusic()" class="w-full py-4 px-5 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white font-bold text-base rounded-2xl shadow-md transition-all cursor-pointer">
+                    📡 ส่งสัญญาณปล่อยเพลง MP3 ไปที่มือถือทุกคน
+                </button>
+            </div>
+
+            <div id="adminTextSection" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">พิมพ์ข้อความแสดงหน้าจอทุกคน</label>
+                    <textarea id="textDisplayInput" rows="3" placeholder="พิมพ์ข้อความที่ต้องการให้แสดงบนหน้าจอทุกคน..." class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-taroOrange transition resize-none"></textarea>
+                </div>
+                <button onclick="broadcastTextDisplay()" class="w-full py-4 px-5 bg-taroOrange hover:bg-taroOrangeHover active:scale-[0.98] text-white font-bold text-base rounded-2xl shadow-md transition-all cursor-pointer">
+                    📺 ส่งข้อความขึ้นหน้าจอทุกคนทันที!
+                </button>
+            </div>
+
+            <div id="adminChatSection" class="space-y-3 hidden">
+                <span class="text-sm font-bold text-slate-700 block">💬 แชทพูดคุยกับผู้ชม (สถานีทาโร่)</span>
+                <div id="adminChatMessagesBox" class="h-48 overflow-y-auto bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col gap-2 text-xs sm:text-sm">
+                    <div class="text-slate-400 text-center italic py-4">ยังไม่มีข้อความสนทนา...</div>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="adminChatTextInput" placeholder="พิมพ์ข้อความในฐานะแอดมิน..." onkeypress="if(event.key === 'Enter') sendAdminChatMessage()" class="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-taroBlue">
+                    <button onclick="sendAdminChatMessage()" class="bg-taroBlue hover:bg-taroBlueHover text-white px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition cursor-pointer shadow-sm">
+                        ส่ง
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-5 space-y-3 pt-3 border-t border-slate-100">
+                <button onclick="stopBroadcast()" class="w-full py-3.5 px-5 bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white font-semibold text-sm sm:text-base rounded-2xl shadow transition-all cursor-pointer">
+                    ⏹️ หยุดการออกอากาศทั้งหมด
+                </button>
+                <button onclick="logoutAdmin()" class="w-full py-3 px-5 bg-slate-500 hover:bg-slate-600 active:scale-[0.98] text-white font-medium text-sm rounded-2xl transition-all cursor-pointer">
+                    ออกจากระบบ
+                </button>
+            </div>
+        </section>
+
+        <!-- Listener View -->
+        <section id="listenerView" class="bg-white p-6 sm:p-8 rounded-3xl shadow-md border border-slate-100 hidden">
+            <div class="flex items-center justify-between mb-4 bg-slate-50 px-4 py-2.5 rounded-2xl border border-slate-200">
+                <div class="flex items-center gap-2 text-sm font-medium text-slate-700">
+                    <span>👥 กำลังฟังอยู่:</span>
+                    <span id="listenerCountBadge" class="font-bold text-taroBlue">1 คน</span>
+                </div>
+                <span id="liveBadge" class="hidden bg-red-600 text-white px-3 py-0.5 rounded-full text-xs font-bold tracking-wide animate-live shadow-sm">
+                    ● LIVE สด
+                </span>
+            </div>
+
+            <h2 class="text-xl font-bold text-slate-800 mb-3">📹 ชมไลฟ์สดสถานีทาโร่</h2>
+
+            <div id="waitingBox" class="bg-amber-50 border border-amber-200 text-amber-800 p-6 rounded-2xl text-center mb-5">
+                <div class="text-3xl mb-2">⏳</div>
+                <h3 class="font-bold text-base sm:text-lg">เชื่อมต่อระบบสำเร็จแล้ว!</h3>
+                <p class="text-sm mt-1 text-amber-700">
+                    กำลังรอแอดมินเริ่มเปิดกล้องไลฟ์สด หรือส่งสัญญาณ...<br>
+                    (ภาพและเสียงจะขึ้นอัตโนมัติเมื่อแอดมินเริ่มไลฟ์)
+                </p>
+            </div>
+
+            <div id="playingVideoBox" class="hidden bg-black rounded-2xl overflow-hidden mb-5 aspect-video relative flex items-center justify-center">
+                <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover"></video>
+                <div class="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full animate-pulse">
+                    LIVE STREAMING
+                </div>
+            </div>
+
+            <div id="playingMusicBox" class="hidden bg-green-50 border border-green-200 text-green-900 p-6 rounded-2xl text-center mb-5">
+                <div class="flex items-end justify-center gap-1 h-6 mb-2">
+                    <div class="eq-bar"></div>
+                    <div class="eq-bar"></div>
+                    <div class="eq-bar"></div>
+                    <div class="eq-bar"></div>
+                </div>
+                <span class="text-xs font-semibold uppercase tracking-wider text-green-700">กำลังเล่นเพลงสตรีมมิ่ง</span>
+                <h3 id="nowPlayingMusicTitle" class="text-lg sm:text-xl font-bold text-slate-900 mt-1 mb-4">-</h3>
+                <audio id="mainPlayer" controls class="w-full rounded-xl shadow-sm"></audio>
+            </div>
+
+            <div id="playingTextBox" class="hidden bg-orange-50 border border-orange-200 text-orange-900 p-6 rounded-2xl text-center mb-5">
+                <div class="text-3xl mb-2">📢</div>
+                <span class="text-xs font-semibold uppercase tracking-wider text-taroOrange">ประกาศสำคัญจากแอดมิน</span>
+                <h3 id="nowPlayingText" class="text-xl sm:text-2xl font-bold text-slate-900 mt-2 break-words">-</h3>
+            </div>
+
+            <!-- Chat Box -->
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-5">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-bold text-slate-700">💬 แชทพูดคุยกันในสถานีทาโร่</span>
+                    <span class="text-[10px] bg-blue-100 text-taroBlue px-2 py-0.5 rounded-full font-medium">Realtime Sync</span>
+                </div>
+                
+                <div id="chatMessagesBox" class="h-40 overflow-y-auto bg-white border border-slate-200 rounded-xl p-3 mb-3 flex flex-col gap-2 text-xs sm:text-sm">
+                    <div class="text-slate-400 text-center italic py-4">ยังไม่มีข้อความสนทนา เริ่มพิมพ์ทักทายกันได้เลย...</div>
+                </div>
+
+                <div class="flex gap-2">
+                    <input type="text" id="chatNameInput" placeholder="ชื่อของคุณ" class="w-1/3 px-3 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-taroBlue">
+                    <input type="text" id="chatTextInput" placeholder="พิมพ์ข้อความ..." onkeypress="if(event.key === 'Enter') sendChatMessage()" class="w-2/3 px-3 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-taroBlue">
+                    <button onclick="sendChatMessage()" class="bg-taroBlue hover:bg-taroBlueHover text-white px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition cursor-pointer shadow-sm">
+                        ส่ง
+                    </button>
+                </div>
+            </div>
+
+            <button onclick="exitListenerMode()" class="w-full py-3 px-6 bg-slate-200 hover:bg-slate-300 active:scale-[0.98] text-slate-700 font-semibold rounded-2xl transition-all cursor-pointer">
+                ออกจากห้องฟัง
+            </button>
+        </section>
+    </div>
+
+    <footer class="text-center text-xs text-slate-400 mt-8">
+        สถานีวิทยุ TARO สมุทรปราการ • Powered by Firebase Realtime Sync & WebRTC
+    </footer>
+
+    <script>
+        const FIREBASE_DB_URL = "https://fm-studio-65c7e-default-rtdb.firebaseio.com";
+        
+        let lastTimestamp = 0;
+        let checkInterval = null;
+        let toastTimeout = null;
+        let myClientId = 'user_' + Math.random().toString(36).substring(2, 9);
+        let presenceInterval = null;
+        let isUserAdmin = false;
+
+        let localStream = null;
+        let peerConnection = null;
+        const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const box = document.getElementById('toastBox');
+            const msgEl = document.getElementById('toastMessage');
+
+            msgEl.innerText = message;
+            box.className = "px-5 py-3.5 rounded-2xl shadow-xl flex items-center justify-between gap-3 border text-white ";
+            
+            if (type === 'success') box.className += "bg-green-700 border-green-600";
+            else if (type === 'error') box.className += "bg-red-700 border-red-600";
+            else box.className += "bg-slate-900 border-slate-700";
+
+            container.classList.remove('opacity-0', '-translate-y-4');
+            container.classList.add('opacity-100', 'translate-y-0');
+
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                container.classList.remove('opacity-100', 'translate-y-0');
+                container.classList.add('opacity-0', '-translate-y-4');
+            }, 3500);
+        }
+
+        function showView(viewId) {
+            ['homeView', 'loginView', 'adminView', 'listenerView'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(viewId).classList.remove('hidden');
+        }
+
+        function switchAdminTab(type) {
+            const videoSec = document.getElementById('adminVideoSection');
+            const musicSec = document.getElementById('adminMusicSection');
+            const textSec = document.getElementById('adminTextSection');
+            const chatSec = document.getElementById('adminChatSection');
+            const videoBtn = document.getElementById('tabVideoBtn');
+            const musicBtn = document.getElementById('tabMusicBtn');
+            const textBtn = document.getElementById('tabTextBtn');
+            const chatBtn = document.getElementById('tabChatBtn');
+
+            videoSec.classList.add('hidden');
+            musicSec.classList.add('hidden');
+            textSec.classList.add('hidden');
+            chatSec.classList.add('hidden');
+            videoBtn.className = "py-2.5 px-2 text-xs font-semibold rounded-xl bg-slate-200 text-slate-700 transition cursor-pointer";
+            musicBtn.className = "py-2.5 px-2 text-xs font-semibold rounded-xl bg-slate-200 text-slate-700 transition cursor-pointer";
+            textBtn.className = "py-2.5 px-2 text-xs font-semibold rounded-xl bg-slate-200 text-slate-700 transition cursor-pointer";
+            chatBtn.className = "py-2.5 px-2 text-xs font-semibold rounded-xl bg-slate-200 text-slate-700 transition cursor-pointer";
+
+            if (type === 'video') {
+                videoSec.classList.remove('hidden');
+                videoBtn.className = "py-2.5 px-2 text-xs font-semibold rounded-xl bg-taroOrange text-white shadow transition cursor-pointer";
+            } else if (type === 'music') {
+                musicSec.classList.remove('hidden');
+                musicBtn.className = "py-2.5 px-2 text-xs font-semibold rounded-xl bg-taroBlue text-white shadow transition cursor-pointer";
+            } else if (type === 'text') {
+                textSec.classList.remove('hidden');
+                textBtn.className = "py-2.5 px-2 text-xs font-semibold rounded-xl bg-taroOrange text-white shadow transition cursor-pointer";
+            } else if (type === 'chat') {
+                chatSec.classList.remove('hidden');
+                chatBtn.className = "py-2.5 px-2 text-xs font-semibold rounded-xl bg-taroBlue text-white shadow transition cursor-pointer";
+            }
+        }
+
+        function loginAdmin() {
+            const email = document.getElementById('adminEmail').value.trim();
+            const pass = document.getElementById('adminPass').value.trim();
+
+            if (email === 'surawitch9@gmail.com' && pass === '132209') {
+                isUserAdmin = true;
+                showToast('เข้าสู่ระบบแอดมินสำเร็จ!', 'success');
+                showView('adminView');
+            } else {
+                showToast('อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่', 'error');
+            }
+        }
+
+        function logoutAdmin() {
+            isUserAdmin = false;
+            stopWebcamLive();
+            document.getElementById('adminPass').value = '';
+            showView('homeView');
+            showToast('ออกจากระบบแอดมินแล้ว');
+        }
+
+        async function startWebcamLive() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('adminLocalVideo').srcObject = localStream;
+                document.getElementById('videoPlaceholder').style.display = 'none';
+
+                peerConnection = new RTCPeerConnection(rtcConfig);
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+                peerConnection.onicecandidate = event => {
+                    if (event.candidate) {
+                        fetch(`${FIREBASE_DB_URL}/webrtc/adminCandidates.json`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(event.candidate)
+                        });
+                    }
+                };
+
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+
+                await fetch(`${FIREBASE_DB_URL}/webrtc.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ offer: JSON.stringify(offer) })
+                });
+
+                await fetch(`${FIREBASE_DB_URL}/station.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ isLive: true, type: 'video', timestamp: Date.now() })
+                });
+
+                document.getElementById('adminStatusText').innerText = "🔴 กำลังไลฟ์สดกล้อง/ไมค์!";
+                showToast('เปิดกล้องและเริ่มไลฟ์สดเรียบร้อย!', 'success');
+
+                listenForAnswers();
+            } catch (err) {
+                showToast('ไม่สามารถเปิดกล้องหรือไมค์ได้ (ตรวจสอบการอนุญาต HTTPS): ' + err.message, 'error');
+            }
+        }
+
+        function stopWebcamLive() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            document.getElementById('adminLocalVideo').srcObject = null;
+            document.getElementById('videoPlaceholder').style.display = 'block';
+            stopBroadcast();
+        }
+
+        function listenForAnswers() {
+            const checkAnswerInterval = setInterval(async () => {
+                if (!isUserAdmin || !peerConnection) { clearInterval(checkAnswerInterval); return; }
+                try {
+                    const res = await fetch(`${FIREBASE_DB_URL}/webrtc/answer.json`);
+                    const data = await res.json();
+                    if (data && !peerConnection.currentRemoteDescription) {
+                        await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(data)));
+                    }
+                } catch (e) {}
+            }, 2000);
+        }
+
+        async function startViewerWebcam() {
+            try {
+                const res = await fetch(`${FIREBASE_DB_URL}/webrtc/offer.json`);
+                const offerStr = await res.json();
+                if (!offerStr) return;
+
+                peerConnection = new RTCPeerConnection(rtcConfig);
+
+                peerConnection.ontrack = event => {
+                    const remoteVideo = document.getElementById('remoteVideo');
+                    if (remoteVideo.srcObject !== event.streams[0]) {
+                        remoteVideo.srcObject = event.streams[0];
+                    }
+                };
+
+                peerConnection.onicecandidate = event => {
+                    if (event.candidate) {
+                        fetch(`${FIREBASE_DB_URL}/webrtc/viewerCandidates.json`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(event.candidate)
+                        });
+                    }
+                };
+
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(offerStr)));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+
+                await fetch(`${FIREBASE_DB_URL}/webrtc/answer.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(answer)
+                });
+            } catch (err) {
+                console.log("WebRTC Viewer Error:", err);
+            }
+        }
+
+        function setTestSong(title, url) {
+            document.getElementById('songTitleInput').value = title;
+            document.getElementById('songUrlInput').value = url;
+            showToast(`เลือก "${title}" แล้ว กดปุ่มส่งสัญญาณเพลงได้เลย`);
+        }
+
+        async function broadcastMusic() {
+            const title = document.getElementById('songTitleInput').value.trim() || "รายการเพลงสถานี TARO";
+            const url = document.getElementById('songUrlInput').value.trim();
+
+            if (!url) {
+                showToast('กรุณาวาง URL ไฟล์ MP3 ก่อนครับ', 'error');
+                return;
+            }
+
+            const payload = { isLive: true, type: 'music', title: title, url: url, timestamp: Date.now() };
+            await fetch(`${FIREBASE_DB_URL}/station.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            document.getElementById('adminStatusText').innerText = `🔴 กำลังส่งเพลง: ${title}`;
+            showToast('ส่งสัญญาณเพลงไปยังมือถือทุกคนเรียบร้อย!', 'success');
+        }
+
+        async function broadcastTextDisplay() {
+            const message = document.getElementById('textDisplayInput').value.trim();
+            if (!message) {
+                showToast('กรุณาพิมพ์ข้อความที่ต้องการแสดง', 'error');
+                return;
+            }
+
+            const payload = { isLive: true, type: 'text', message: message, timestamp: Date.now() };
+            await fetch(`${FIREBASE_DB_URL}/station.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            document.getElementById('adminStatusText').innerText = `📺 แสดงข้อความ: ${message}`;
+            showToast('ส่งข้อความขึ้นหน้าจอทุกคนเรียบร้อย!', 'success');
+            document.getElementById('textDisplayInput').value = '';
+        }
+
+        async function stopBroadcast() {
+            await fetch(`${FIREBASE_DB_URL}/station.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isLive: false, timestamp: Date.now() })
+            });
+            document.getElementById('adminStatusText').innerText = "หยุดการออกอากาศแล้ว";
+            showToast('สั่งหยุดการออกอากาศทุกเครื่องเรียบร้อยแล้ว');
+        }
+
+        function enterListenerMode() {
+            lastTimestamp = 0;
+            showView('listenerView');
+
+            if (checkInterval) clearInterval(checkInterval);
+            syncFromServer();
+            checkInterval = setInterval(syncFromServer, 2000);
+
+            startPresenceSystem();
+        }
+
+        function exitListenerMode() {
+            if (checkInterval) { clearInterval(checkInterval); checkInterval = null; }
+            if (presenceInterval) { clearInterval(presenceInterval); presenceInterval = null; }
+            
+            fetch(`${FIREBASE_DB_URL}/listeners/${myClientId}.json`, { method: 'DELETE' }).catch(() => {});
+            const player = document.getElementById('mainPlayer');
+            player.pause();
+            player.src = "";
+            if (peerConnection) { peerConnection.close(); peerConnection = null; }
+
+            lastTimestamp = 0;
+            showView('homeView');
+        }
+
+        function startPresenceSystem() {
+            const updatePresence = () => {
+                fetch(`${FIREBASE_DB_URL}/listeners/${myClientId}.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ online: true, time: Date.now() })
+                }).catch(() => {});
+            };
+
+            updatePresence();
+            if (presenceInterval) clearInterval(presenceInterval);
+            presenceInterval = setInterval(updatePresence, 5000);
+
+            setInterval(async () => {
+                try {
+                    const res = await fetch(`${FIREBASE_DB_URL}/listeners.json`);
+                    const data = await res.json();
+                    if (data) {
+                        const now = Date.now();
+                        let activeCount = 0;
+                        Object.keys(data).forEach(id => {
+                            if (now - data[id].time < 15000) activeCount++;
+                        });
+                        document.getElementById('listenerCountBadge').innerText = (activeCount > 0 ? activeCount : 1) + ' คน';
+                    }
+                } catch (e) {}
+            }, 3000);
+        }
+
+        async function syncFromServer() {
+            try {
+                const res = await fetch(`${FIREBASE_DB_URL}/station.json`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const player = document.getElementById('mainPlayer');
+                    const waitingBox = document.getElementById('waitingBox');
+                    const playingVideoBox = document.getElementById('playingVideoBox');
+                    const playingMusicBox = document.getElementById('playingMusicBox');
+                    const playingTextBox = document.getElementById('playingTextBox');
+                    const liveBadge = document.getElementById('liveBadge');
+
+                    if (data && data.isLive) {
+                        waitingBox.classList.add('hidden');
+                        liveBadge.classList.remove('hidden');
+
+                        if (data.timestamp !== lastTimestamp) {
+                            lastTimestamp = data.timestamp;
+
+                            if (data.type === 'video') {
+                                playingMusicBox.classList.add('hidden');
+                                playingTextBox.classList.add('hidden');
+                                playingVideoBox.classList.remove('hidden');
+                                player.pause();
+                                startViewerWebcam();
+                            } else if (data.type === 'music') {
+                                playingVideoBox.classList.add('hidden');
+                                playingTextBox.classList.add('hidden');
+                                playingMusicBox.classList.remove('hidden');
+                                document.getElementById('nowPlayingMusicTitle').innerText = data.title || "รายการเพลงสถานี";
+                                player.src = data.url;
+                                player.play().catch(() => {});
+                            } else if (data.type === 'text') {
+                                playingVideoBox.classList.add('hidden');
+                                playingMusicBox.classList.add('hidden');
+                                playingTextBox.classList.remove('hidden');
+                                player.pause();
+                                document.getElementById('nowPlayingText').innerText = data.message;
+                            }
+                        }
+                    } else {
+                        waitingBox.classList.remove('hidden');
+                        playingVideoBox.classList.add('hidden');
+                        playingMusicBox.classList.add('hidden');
+                        playingTextBox.classList.add('hidden');
+                        liveBadge.classList.add('hidden');
+                        if (!player.paused) player.pause();
+                        lastTimestamp = 0;
+                    }
+                }
+
+                const chatRes = await fetch(`${FIREBASE_DB_URL}/chats.json`);
+                if (chatRes.ok) {
+                    const chatData = await chatRes.json();
+                    const chatBox = document.getElementById('chatMessagesBox');
+                    const adminChatBox = document.getElementById('adminChatMessagesBox');
+                    
+                    if (chatData) {
+                        let messages = Object.values(chatData);
+                        messages.sort((a, b) => a.timestamp - b.timestamp);
+                        messages = messages.slice(-30);
+
+                        let html = '';
+                        messages.forEach(msg => {
+                            if (msg.isAdmin) {
+                                html += `<div class="bg-orange-50 border border-orange-200 p-2 rounded-lg"><span class="bg-taroOrange text-white text-[10px] px-2 py-0.5 rounded-full font-bold mr-1">👑 แอดมิน</span> <span class="font-bold text-slate-800">${msg.name}:</span> ${msg.text}</div>`;
+                            } else {
+                                html += `<div class="bg-slate-100 p-2 rounded-lg"><span class="bg-blue-100 text-taroBlue text-[10px] px-2 py-0.5 rounded-full font-medium mr-1">👤 ผู้ฟัง</span> <span class="font-bold text-slate-700">${msg.name}:</span> ${msg.text}</div>`;
+                            }
+                        });
+                        chatBox.innerHTML = html;
+                        chatBox.scrollTop = chatBox.scrollHeight;
+                        if (adminChatBox) {
+                            adminChatBox.innerHTML = html;
+                            adminChatBox.scrollTop = adminChatBox.scrollHeight;
+                        }
+                    }
+                }
+            } catch (err) {
+                console.log("กำลังซิงค์ข้อมูล...", err);
+            }
+        }
+
+        async function sendChatMessage() {
+            const nameInput = document.getElementById('chatNameInput');
+            const textInput = document.getElementById('chatTextInput');
+            const name = nameInput.value.trim() || "คุณนันทยา";
+            const text = textInput.value.trim();
+
+            if (!text) return;
+
+            const chatPayload = { name: name, text: text, isAdmin: false, timestamp: Date.now() };
+            await fetch(`${FIREBASE_DB_URL}/chats.json`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(chatPayload)
+            });
+            textInput.value = '';
+            syncFromServer();
+        }
+
+        async function sendAdminChatMessage() {
+            const textInput = document.getElementById('adminChatTextInput');
+            const text = textInput.value.trim();
+
+            if (!text) return;
+
+            const chatPayload = { name: "แอดมินทาโร่", text: text, isAdmin: true, timestamp: Date.now() };
+            await fetch(`${FIREBASE_DB_URL}/chats.json`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(chatPayload)
+            });
+            textInput.value = '';
+            syncFromServer();
+        }
+    </script>
+</body>
+</html>
