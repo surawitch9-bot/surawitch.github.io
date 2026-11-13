@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>สถานีวิทยุ TARO - สมุทรปราการ (Live Video & Audio Studio)</title>
+    <title>สถานีวิทยุ TARO - สมุทรปราการ (Emergency Live Studio)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -39,6 +39,12 @@
         .eq-bar:nth-child(2) { animation-delay: 0.2s; }
         .eq-bar:nth-child(3) { animation-delay: 0.4s; }
         .eq-bar:nth-child(4) { animation-delay: 0.1s; }
+        @keyframes countZoom {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-count { animation: countZoom 0.8s ease-out; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col justify-between p-4 sm:p-6">
@@ -49,17 +55,24 @@
         </div>
     </div>
 
+    <!-- Countdown Fullscreen Overlay (Twitch Style) -->
+    <div id="countdownOverlay" class="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center hidden">
+        <div class="text-white text-lg sm:text-2xl font-medium mb-4 tracking-wide">🔴 แอดมินกำลังจะถ่ายทอดสดใน...</div>
+        <div id="countdownNumber" class="text-taroOrange text-8xl sm:text-9xl font-bold animate-count">3</div>
+        <p class="text-slate-400 text-sm mt-6">เตรียมรับชมภาพและเสียงสดพร้อมกัน</p>
+    </div>
+
     <div class="w-full max-w-lg mx-auto my-auto">
         <header class="bg-gradient-to-br from-taroBlue via-[#005f9e] to-taroOrange text-white p-6 sm:p-8 rounded-3xl shadow-lg text-center mb-6 relative overflow-hidden">
             <div class="relative z-10">
                 <div class="inline-block bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium tracking-wider mb-2">
-                    ONLINE BROADCAST SYSTEM
+                    EMERGENCY BROADCAST SYSTEM
                 </div>
                 <h1 class="text-2xl sm:text-3xl font-bold tracking-tight drop-shadow-sm">
                     📻 สถานีวิทยุ TARO
                 </h1>
                 <p class="text-white/90 text-sm sm:text-base mt-1 font-light">
-                    สมุทรปราการ • Video & Audio Live Studio
+                    สมุทรปราการ • Live Studio & Emergency Hub
                 </p>
             </div>
             <div class="w-32 h-32 bg-white/10 rounded-full absolute -top-10 -right-10"></div>
@@ -69,7 +82,7 @@
         <!-- Home View -->
         <main id="homeView" class="bg-white p-6 sm:p-8 rounded-3xl shadow-md border border-slate-100 text-center transition-all">
             <div class="w-16 h-16 bg-blue-50 text-taroBlue rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl shadow-inner">
-                🎥
+                🎙️
             </div>
             <h2 class="text-xl sm:text-2xl font-bold text-slate-800">ยินดีต้อนรับสู่สถานี TARO</h2>
             <p class="text-slate-500 text-sm sm:text-base mt-2 mb-6">
@@ -129,25 +142,25 @@
             </div>
 
             <div class="grid grid-cols-2 gap-2 mb-4">
-                <button onclick="switchAdminTab('video')" id="tabVideoBtn" class="py-2.5 px-2 text-xs font-semibold rounded-xl bg-taroOrange text-white shadow transition cursor-pointer">📹 ไลฟ์สดกล้อง/ไมค์</button>
+                <button onclick="switchAdminTab('video')" id="tabVideoBtn" class="py-2.5 px-2 text-xs font-semibold rounded-xl bg-taroOrange text-white shadow transition cursor-pointer">📹 ไลฟ์สดกล้อง/ลิงก์</button>
                 <button onclick="switchAdminTab('music')" id="tabMusicBtn" class="py-2.5 px-2 text-xs font-semibold rounded-xl bg-slate-200 text-slate-700 transition cursor-pointer">🎵 โหมดเพลง MP3</button>
                 <button onclick="switchAdminTab('text')" id="tabTextBtn" class="py-2.5 px-2 text-xs font-semibold rounded-xl bg-slate-200 text-slate-700 transition cursor-pointer">📺 โหมดหน้าจอ</button>
                 <button onclick="switchAdminTab('chat')" id="tabChatBtn" class="py-2.5 px-2 text-xs font-semibold rounded-xl bg-slate-200 text-slate-700 transition cursor-pointer">💬 แชทผู้ชม</button>
             </div>
 
             <div id="adminVideoSection" class="space-y-4">
-                <div class="bg-orange-50 border border-orange-200 p-4 rounded-2xl text-center">
-                    <p class="text-xs text-orange-800 mb-3 font-medium">กดปุ่มด้านล่างเพื่อเปิดกล้องและไมโครโฟนเริ่มไลฟ์สดให้ทุกคนดูทันที</p>
-                    <div class="relative rounded-xl overflow-hidden bg-black aspect-video mb-3 flex items-center justify-center">
-                        <video id="adminLocalVideo" autoplay playsinline muted class="w-full h-full object-cover"></video>
-                        <span id="videoPlaceholder" class="absolute text-white text-xs">ยังไม่ได้เปิดกล้อง</span>
+                <div class="bg-orange-50 border border-orange-200 p-4 rounded-2xl">
+                    <p class="text-xs text-orange-800 mb-3 font-medium text-center">วางลิงก์สตรีม (เช่น Google Meet, YouTube Live หรือ Twitch) เพื่อให้ผู้ฟังเห็นภาพไม่มีวันจอดำ</p>
+                    <div class="mb-3">
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">URL ไลฟ์สตรีม / ห้องประชุม</label>
+                        <input type="url" id="streamUrlInput" placeholder="https://meet.google.com/xxx-xxxx-xxx" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-taroOrange">
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="startWebcamLive()" class="flex-1 py-3 bg-taroOrange hover:bg-taroOrangeHover text-white font-bold rounded-xl text-sm shadow cursor-pointer">
-                            🔴 เริ่มไลฟ์สด (เปิดกล้อง/ไมค์)
+                        <button onclick="triggerCountdownAndLive()" class="flex-1 py-3 bg-taroOrange hover:bg-taroOrangeHover text-white font-bold rounded-xl text-sm shadow cursor-pointer">
+                            🔴 นับถอยหลัง & เริ่มไลฟ์สด (3-2-1)
                         </button>
-                        <button onclick="stopWebcamLive()" class="py-3 px-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm shadow cursor-pointer">
-                            ⏹️ ปิดกล้อง
+                        <button onclick="stopBroadcast()" class="py-3 px-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm shadow cursor-pointer">
+                            ⏹️ ปิดไลฟ์
                         </button>
                     </div>
                 </div>
@@ -177,7 +190,7 @@
             <div id="adminTextSection" class="space-y-4 hidden">
                 <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1">พิมพ์ข้อความแสดงหน้าจอทุกคน</label>
-                    <textarea id="textDisplayInput" rows="3" placeholder="พิมพ์ข้อความที่ต้องการให้แสดงบนหน้าจอทุกคน..." class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-taroOrange transition resize-none"></textarea>
+                    <textarea id="textDisplayInput" rows="3" placeholder="พิมพ์ข้อความแจ้งเตือนภัย/ประชาสัมพันธ์..." class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-taroOrange transition resize-none"></textarea>
                 </div>
                 <button onclick="broadcastTextDisplay()" class="w-full py-4 px-5 bg-taroOrange hover:bg-taroOrangeHover active:scale-[0.98] text-white font-bold text-base rounded-2xl shadow-md transition-all cursor-pointer">
                     📺 ส่งข้อความขึ้นหน้าจอทุกคนทันที!
@@ -225,15 +238,22 @@
                 <div class="text-3xl mb-2">⏳</div>
                 <h3 class="font-bold text-base sm:text-lg">เชื่อมต่อระบบสำเร็จแล้ว!</h3>
                 <p class="text-sm mt-1 text-amber-700">
-                    กำลังรอแอดมินเริ่มเปิดกล้องไลฟ์สด หรือส่งสัญญาณ...<br>
-                    (ภาพและเสียงจะขึ้นอัตโนมัติเมื่อแอดมินเริ่มไลฟ์)
+                    กำลังรอแอดมินกดไลฟ์สด...<br>
+                    (เมื่อแอดมินกด จะมีนับถอยหลัง 3-2-1 และภาพจะขึ้นอัตโนมัติ)
                 </p>
             </div>
 
-            <div id="playingVideoBox" class="hidden bg-black rounded-2xl overflow-hidden mb-5 aspect-video relative flex items-center justify-center">
-                <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover"></video>
-                <div class="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full animate-pulse">
+            <div id="playingVideoBox" class="hidden bg-black rounded-2xl overflow-hidden mb-5 aspect-video relative flex flex-col items-center justify-center p-4">
+                <div class="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full animate-pulse z-10">
                     LIVE STREAMING
+                </div>
+                <div class="text-center text-white space-y-3">
+                    <div class="text-3xl">🔴</div>
+                    <h3 class="text-base sm:text-lg font-bold">แอดมินกำลังไลฟ์สดอยู่!</h3>
+                    <p class="text-xs text-slate-300">คลิกปุ่มด้านล่างเพื่อเข้าสู่ห้องถ่ายทอดสดภาพและเสียงคมชัด</p>
+                    <a id="viewerStreamLink" href="#" target="_blank" class="inline-block py-3 px-6 bg-taroOrange hover:bg-taroOrangeHover text-white font-bold text-sm rounded-xl shadow-lg transition">
+                        🔗 กดเพื่อเข้าชมไลฟ์สดทันที
+                    </a>
                 </div>
             </div>
 
@@ -282,7 +302,7 @@
     </div>
 
     <footer class="text-center text-xs text-slate-400 mt-8">
-        สถานีวิทยุ TARO สมุทรปราการ • Powered by Firebase Realtime Sync & WebRTC
+        สถานีวิทยุ TARO สมุทรปราการ • Powered by Firebase Realtime Sync
     </footer>
 
     <script>
@@ -294,10 +314,6 @@
         let myClientId = 'user_' + Math.random().toString(36).substring(2, 9);
         let presenceInterval = null;
         let isUserAdmin = false;
-
-        let localStream = null;
-        let peerConnection = null;
-        const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
         function showToast(message, type = 'info') {
             const container = document.getElementById('toastContainer');
@@ -377,119 +393,66 @@
 
         function logoutAdmin() {
             isUserAdmin = false;
-            stopWebcamLive();
             document.getElementById('adminPass').value = '';
             showView('homeView');
             showToast('ออกจากระบบแอดมินแล้ว');
         }
 
-        async function startWebcamLive() {
+        // --- Twitch-Style Countdown & Live Trigger ---
+        async function triggerCountdownAndLive() {
+            const streamUrl = document.getElementById('streamUrlInput').value.trim();
+            if (!streamUrl) {
+                showToast('กรุณากรอก URL ไลฟ์สตรีมก่อนครับ', 'error');
+                return;
+            }
+
             try {
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                document.getElementById('adminLocalVideo').srcObject = localStream;
-                document.getElementById('videoPlaceholder').style.display = 'none';
-
-                peerConnection = new RTCPeerConnection(rtcConfig);
-                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-                peerConnection.onicecandidate = event => {
-                    if (event.candidate) {
-                        fetch(`${FIREBASE_DB_URL}/webrtc/adminCandidates.json`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(event.candidate)
-                        });
-                    }
-                };
-
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-
-                await fetch(`${FIREBASE_DB_URL}/webrtc.json`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ offer: JSON.stringify(offer) })
-                });
-
+                // 1. ส่งสัญญาณนับถอยหลัง 3 วินาทีไปบอกผู้ชมผ่าน Firebase
                 await fetch(`${FIREBASE_DB_URL}/station.json`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ isLive: true, type: 'video', timestamp: Date.now() })
+                    body: JSON.stringify({ isLive: false, type: 'countdown', timestamp: Date.now() })
                 });
+                showToast('กำลังส่งสัญญาณนับถอยหลัง 3-2-1 ให้ผู้ชม...');
 
-                document.getElementById('adminStatusText').innerText = "🔴 กำลังไลฟ์สดกล้อง/ไมค์!";
-                showToast('เปิดกล้องและเริ่มไลฟ์สดเรียบร้อย!', 'success');
+                // 2. หน่วงเวลา 3.5 วินาที แล้วส่งลิงก์ไลฟ์จริง
+                setTimeout(async () => {
+                    const payload = { isLive: true, type: 'video', url: streamUrl, timestamp: Date.now() };
+                    await fetch(`${FIREBASE_DB_URL}/station.json`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    document.getElementById('adminStatusText').innerText = "🔴 กำลังไลฟ์สดผ่านลิงก์สตรีม!";
+                    showToast('เริ่มถ่ายทอดสด (Live) แล้ว!', 'success');
+                }, 3500);
 
-                listenForAnswers();
             } catch (err) {
-                showToast('ไม่สามารถเปิดกล้องหรือไมค์ได้ (ตรวจสอบการอนุญาต HTTPS): ' + err.message, 'error');
+                showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
             }
         }
 
-        function stopWebcamLive() {
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-            }
-            if (peerConnection) {
-                peerConnection.close();
-                peerConnection = null;
-            }
-            document.getElementById('adminLocalVideo').srcObject = null;
-            document.getElementById('videoPlaceholder').style.display = 'block';
-            stopBroadcast();
-        }
+        function runCountdownAnimation(onComplete) {
+            const overlay = document.getElementById('countdownOverlay');
+            const numEl = document.getElementById('countdownNumber');
+            overlay.classList.remove('hidden');
 
-        function listenForAnswers() {
-            const checkAnswerInterval = setInterval(async () => {
-                if (!isUserAdmin || !peerConnection) { clearInterval(checkAnswerInterval); return; }
-                try {
-                    const res = await fetch(`${FIREBASE_DB_URL}/webrtc/answer.json`);
-                    const data = await res.json();
-                    if (data && !peerConnection.currentRemoteDescription) {
-                        await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(data)));
-                    }
-                } catch (e) {}
-            }, 2000);
-        }
+            let count = 3;
+            numEl.innerText = count;
 
-        async function startViewerWebcam() {
-            try {
-                const res = await fetch(`${FIREBASE_DB_URL}/webrtc/offer.json`);
-                const offerStr = await res.json();
-                if (!offerStr) return;
-
-                peerConnection = new RTCPeerConnection(rtcConfig);
-
-                peerConnection.ontrack = event => {
-                    const remoteVideo = document.getElementById('remoteVideo');
-                    if (remoteVideo.srcObject !== event.streams[0]) {
-                        remoteVideo.srcObject = event.streams[0];
-                    }
-                };
-
-                peerConnection.onicecandidate = event => {
-                    if (event.candidate) {
-                        fetch(`${FIREBASE_DB_URL}/webrtc/viewerCandidates.json`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(event.candidate)
-                        });
-                    }
-                };
-
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(offerStr)));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-
-                await fetch(`${FIREBASE_DB_URL}/webrtc/answer.json`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(answer)
-                });
-            } catch (err) {
-                console.log("WebRTC Viewer Error:", err);
-            }
+            const timer = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    numEl.innerText = count;
+                    numEl.classList.remove('animate-count');
+                    void numEl.offsetWidth;
+                    numEl.classList.add('animate-count');
+                } else {
+                    clearInterval(timer);
+                    overlay.classList.add('hidden');
+                    if (onComplete) onComplete();
+                }
+            }, 1000);
         }
 
         function setTestSong(title, url) {
@@ -564,7 +527,7 @@
             const player = document.getElementById('mainPlayer');
             player.pause();
             player.src = "";
-            if (peerConnection) { peerConnection.close(); peerConnection = null; }
+            document.getElementById('countdownOverlay').classList.add('hidden');
 
             lastTimestamp = 0;
             showView('homeView');
@@ -611,42 +574,49 @@
                     const playingTextBox = document.getElementById('playingTextBox');
                     const liveBadge = document.getElementById('liveBadge');
 
-                    if (data && data.isLive) {
-                        waitingBox.classList.add('hidden');
-                        liveBadge.classList.remove('hidden');
-
-                        if (data.timestamp !== lastTimestamp) {
+                    if (data) {
+                        if (data.type === 'countdown' && data.timestamp !== lastTimestamp) {
                             lastTimestamp = data.timestamp;
-
-                            if (data.type === 'video') {
-                                playingMusicBox.classList.add('hidden');
-                                playingTextBox.classList.add('hidden');
-                                playingVideoBox.classList.remove('hidden');
-                                player.pause();
-                                startViewerWebcam();
-                            } else if (data.type === 'music') {
-                                playingVideoBox.classList.add('hidden');
-                                playingTextBox.classList.add('hidden');
-                                playingMusicBox.classList.remove('hidden');
-                                document.getElementById('nowPlayingMusicTitle').innerText = data.title || "รายการเพลงสถานี";
-                                player.src = data.url;
-                                player.play().catch(() => {});
-                            } else if (data.type === 'text') {
-                                playingVideoBox.classList.add('hidden');
-                                playingMusicBox.classList.add('hidden');
-                                playingTextBox.classList.remove('hidden');
-                                player.pause();
-                                document.getElementById('nowPlayingText').innerText = data.message;
-                            }
+                            runCountdownAnimation();
                         }
-                    } else {
-                        waitingBox.classList.remove('hidden');
-                        playingVideoBox.classList.add('hidden');
-                        playingMusicBox.classList.add('hidden');
-                        playingTextBox.classList.add('hidden');
-                        liveBadge.classList.add('hidden');
-                        if (!player.paused) player.pause();
-                        lastTimestamp = 0;
+                        else if (data.isLive) {
+                            waitingBox.classList.add('hidden');
+                            liveBadge.classList.remove('hidden');
+
+                            if (data.timestamp !== lastTimestamp) {
+                                lastTimestamp = data.timestamp;
+
+                                if (data.type === 'video') {
+                                    playingMusicBox.classList.add('hidden');
+                                    playingTextBox.classList.add('hidden');
+                                    playingVideoBox.classList.remove('hidden');
+                                    player.pause();
+                                    document.getElementById('viewerStreamLink').href = data.url;
+                                } else if (data.type === 'music') {
+                                    playingVideoBox.classList.add('hidden');
+                                    playingTextBox.classList.add('hidden');
+                                    playingMusicBox.classList.remove('hidden');
+                                    document.getElementById('nowPlayingMusicTitle').innerText = data.title || "รายการเพลงสถานี";
+                                    player.src = data.url;
+                                    player.play().catch(() => {});
+                                } else if (data.type === 'text') {
+                                    playingVideoBox.classList.add('hidden');
+                                    playingMusicBox.classList.add('hidden');
+                                    playingTextBox.classList.remove('hidden');
+                                    player.pause();
+                                    document.getElementById('nowPlayingText').innerText = data.message;
+                                }
+                            }
+                        } else if (!data.isLive && data.type !== 'countdown') {
+                            waitingBox.classList.remove('hidden');
+                            playingVideoBox.classList.add('hidden');
+                            playingMusicBox.classList.add('hidden');
+                            playingTextBox.classList.add('hidden');
+                            liveBadge.classList.add('hidden');
+                            if (!player.paused) player.pause();
+                            document.getElementById('countdownOverlay').classList.add('hidden');
+                            lastTimestamp = 0;
+                        }
                     }
                 }
 
